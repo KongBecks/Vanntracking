@@ -15,7 +15,8 @@ db.pragma('journal_mode = WAL');
 db.exec(`
   CREATE TABLE IF NOT EXISTS water_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+    timestamp TEXT NOT NULL,
+    oslo_date TEXT NOT NULL,
     amount_ml INTEGER NOT NULL DEFAULT 500
   )
 `);

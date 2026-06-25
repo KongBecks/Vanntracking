@@ -13,18 +13,17 @@ const TIMEZONE = 'Europe/Oslo';
 app.use(cors());
 app.use(express.json());
 
-function todayRange() {
+function osloNow() {
   const now = new Date();
-  const oslo = new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
-  const start = new Date(`${oslo}T00:00:00+02:00`).toISOString();
-  const end = new Date(`${oslo}T23:59:59+02:00`).toISOString();
-  return { start, end, dateStr: oslo };
+  const date = new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const time = new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+  return { date, time, iso: now.toISOString() };
 }
 
-function dateRange(dateStr) {
-  const start = new Date(`${dateStr}T00:00:00+02:00`).toISOString();
-  const end = new Date(`${dateStr}T23:59:59+02:00`).toISOString();
-  return { start, end };
+function osloDate(daysAgo = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 const lastTapTime = new Map();
@@ -42,8 +41,9 @@ app.get('/log', (req, res) => {
   }
   lastTapTime.set(clientId, now);
 
-  const stmt = db.prepare('INSERT INTO water_log (timestamp, amount_ml) VALUES (datetime(?), 500)');
-  stmt.run(new Date().toISOString());
+  const oslo = osloNow();
+  const stmt = db.prepare('INSERT INTO water_log (timestamp, oslo_date, amount_ml) VALUES (?, ?, 500)');
+  stmt.run(oslo.iso, oslo.date);
 
   const redirectUrl = process.env.NODE_ENV === 'production' ? '/?tapped=1' : 'http://localhost:5173/?tapped=1';
   res.redirect(302, redirectUrl);
@@ -52,11 +52,11 @@ app.get('/log', (req, res) => {
 // GET /api/today
 app.get('/api/today', (req, res) => {
   const goal = parseInt(req.query.goal) || 2000;
-  const { start, end } = todayRange();
+  const today = osloDate();
 
   const entries = db.prepare(
-    'SELECT id, timestamp, amount_ml FROM water_log WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-  ).all(start, end);
+    'SELECT id, timestamp, amount_ml FROM water_log WHERE oslo_date = ? ORDER BY timestamp ASC'
+  ).all(today);
 
   const total_ml = entries.reduce((sum, e) => sum + e.amount_ml, 0);
 
@@ -78,14 +78,11 @@ app.get('/api/history', (req, res) => {
   const results = [];
 
   for (let i = 0; i < days; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
-    const { start, end } = dateRange(dateStr);
+    const dateStr = osloDate(i);
 
     const row = db.prepare(
-      'SELECT COALESCE(SUM(amount_ml), 0) as total_ml, COUNT(*) as tap_count FROM water_log WHERE timestamp >= ? AND timestamp <= ?'
-    ).get(start, end);
+      'SELECT COALESCE(SUM(amount_ml), 0) as total_ml, COUNT(*) as tap_count FROM water_log WHERE oslo_date = ?'
+    ).get(dateStr);
 
     results.push({
       date: dateStr,
@@ -104,10 +101,9 @@ app.get('/api/entries', (req, res) => {
     return res.status(400).json({ error: 'date parameter required (YYYY-MM-DD)' });
   }
 
-  const { start, end } = dateRange(dateStr);
   const entries = db.prepare(
-    'SELECT id, timestamp, amount_ml FROM water_log WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC'
-  ).all(start, end);
+    'SELECT id, timestamp, amount_ml FROM water_log WHERE oslo_date = ? ORDER BY timestamp ASC'
+  ).all(dateStr);
 
   res.json(entries);
 });
