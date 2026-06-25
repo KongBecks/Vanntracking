@@ -1,0 +1,16 @@
+{
+  "name": "Vanntracking",
+  "short_name": "Vann",
+  "description": "Spor vanninntak med NFC-tap",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f9ff",
+  "theme_color": "#e0f2fe",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
