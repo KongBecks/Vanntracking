@@ -14,6 +14,14 @@ app.set('trust proxy', true);
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+});
+
 function osloNow() {
   const now = new Date();
   const date = new Intl.DateTimeFormat('sv-SE', { timeZone: TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
@@ -32,17 +40,13 @@ const DEBOUNCE_MS = 3000;
 
 // GET /log — NFC tap endpoint
 app.get('/log', (req, res) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-
   const now = Date.now();
   const clientId = req.ip;
 
   const lastTap = lastTapTime.get(clientId) || 0;
   if (now - lastTap < DEBOUNCE_MS) {
     const base = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173';
-    return res.redirect(302, `${base}/`);
+    return res.redirect(303, `${base}/`);
   }
   lastTapTime.set(clientId, now);
 
@@ -51,7 +55,7 @@ app.get('/log', (req, res) => {
   stmt.run(oslo.iso, oslo.date);
 
   const base = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173';
-  res.redirect(302, `${base}/?tapped=${now}`);
+  res.redirect(303, `${base}/?tapped=${now}`);
 });
 
 // GET /api/today
