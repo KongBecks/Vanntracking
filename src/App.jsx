@@ -24,7 +24,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/today?goal=${goal}`)
+    fetch(`/api/today?goal=${goal}&_t=${Date.now()}`)
       .then(r => r.json())
       .then(d => {
         setData(d);
